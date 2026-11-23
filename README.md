@@ -45,6 +45,7 @@ npx skills add steveesamson/appbee-skills --skill appbee-model appbee-worker
 
 | Skill | Install |
 |---|---|
+| `appbee-init` | `npx skills add steveesamson/appbee-skills@appbee-init` |
 | `appbee-controller` | `npx skills add steveesamson/appbee-skills@appbee-controller` |
 | `appbee-model` | `npx skills add steveesamson/appbee-skills@appbee-model` |
 | `appbee-plugin` | `npx skills add steveesamson/appbee-skills@appbee-plugin` |
@@ -58,6 +59,9 @@ Each install is the skill directory, so reference files such as `hooks.md` and `
 
 ```
 skills/
+├── appbee-init/
+│   ├── SKILL.md                    scaffold src/bee and the serve() entry
+│   └── templates.md                default setup files
 ├── appbee-controller/SKILL.md      routes, verbs, policies, realtime
 ├── appbee-model/
 │   ├── SKILL.md                    schema, store binding, model options
@@ -80,12 +84,37 @@ skills/
 
 | Skill | Load it when | Entry |
 |---|---|---|
+| `appbee-init` | Starting a new appbee project in the current directory | [`skills/appbee-init/SKILL.md`](skills/appbee-init/SKILL.md) |
 | `appbee-controller` | Adding or changing a route, endpoint, verb, or controller | [`skills/appbee-controller/SKILL.md`](skills/appbee-controller/SKILL.md) |
 | `appbee-model` | Adding or changing a model, schema, collection, query, or write hook | [`skills/appbee-model/SKILL.md`](skills/appbee-model/SKILL.md) |
 | `appbee-plugin` | Adding or changing a plugin, shared service, or third-party client wrapper | [`skills/appbee-plugin/SKILL.md`](skills/appbee-plugin/SKILL.md) |
 | `appbee-use` | Validating a request, or adding captcha, file-delete, or Excel-export | [`skills/appbee-use/SKILL.md`](skills/appbee-use/SKILL.md) |
 | `appbee-utils` | A handler, hook, plugin, policy, or job needs events, Redis, joins, paging, cron, config, data sources, JWTs, or password hashing | [`skills/appbee-utils/SKILL.md`](skills/appbee-utils/SKILL.md) |
 | `appbee-worker` | Adding or changing a worker, queue, producer, consumer, or background job | [`skills/appbee-worker/SKILL.md`](skills/appbee-worker/SKILL.md) |
+
+### appbee-init
+
+Scaffolds a new app with the base folder always at `src/bee`, plus a `src/app.ts` entry that calls `serve(path.join(__dirname, 'bee'))`. The skill refuses, and changes nothing, if appbee is already initialised. That means `src/bee/` exists, some folder outside `node_modules` holds both `config/` and `modules/`, or a source file imports `serve` or `work` from `appbee`.
+
+It creates `config/`, `middlewares/`, `modules/`, `plugins/`, `policies/`, and `types/`, then writes the setup files from [`templates.md`](skills/appbee-init/templates.md):
+
+| File | Default |
+|---|---|
+| `config/application.ts` | App name from `package.json`, port `PORT` or 3000, REST mounted on `/api` |
+| `config/store.ts` | A `core` MongoDB store configured from `DB_*` environment variables |
+| `config/policy.ts` | Deny by default; only `GET /health` is open |
+| `config/security.ts` | A default `secret`, overridden by `APPBEE_SECRET`, with comments to replace it with a strong value |
+| `config/view.ts` | `public` static dir, `views` view dir |
+| `middlewares/logger.ts` | Logs each request |
+| `modules/health/controller.ts` | `GET /api/health` → `{ data: { status: 'ok' } }` |
+| `types/extensions.d.ts` | Empty `Models`, `Jobs`, `Plugins` interfaces; regenerated in development |
+
+It also adds missing project wiring without overwriting existing values:
+- `package.json`: `"type": "module"`, the `dev`/`build`/`start` scripts, and dependencies.
+- `tsconfig.json`, if there isn't one.
+- `.gitignore` and `.env.example`.
+
+It prints the install command instead of running it. It doesn't create `config/bus.ts`, because a bus file makes the server require Redis at boot; add one with `appbee-worker` when you need queues.
 
 ### appbee-controller
 
@@ -162,28 +191,22 @@ These rules show up in more than one skill. The skill files remain the source of
 - **Two processes.** Server code uses `appState()`. Worker code uses `workerState()`. Shared hooks and plugins resolve whichever is live, and read config with `utils.useConfig`.
 - **Transient flags.** A field listed in both the schema and `transients` survives validation and is never stored. Hooks read it from `req.context.data`.
 
-## Commit history
 
-### `d9e701a` — Add the base skills for appbee
+#### Init (`appbee-init`, `templates.md`)
 
-**2026-11-23 20:38 +0100** · Steve S. Samson · `d9e701a6823729f60fe6bbaf57f9547165b37d9f`
+`SKILL.md` fixes the base at `src/bee` and the entry at `src/app.ts`. Step 1 is a refusal check covering an existing `src/bee/`, any folder holding both `config/` and `modules/`, and any `serve`/`work` import from `appbee`. A bare `appbee` dependency doesn't count as initialised. The skill spells the folder `middlewares/`, plural, because appbee ignores `middleware/`.
 
-Initial commit. Adds the six base skills as twelve markdown files, 965 lines, with no application code, package manifest, or prior history. The commit message is the subject line only.
+It explains each default:
+- No `bus.ts`, so the server doesn't need Redis.
+- `core` is the store that store-less models and requests read from.
+- Policies deny by default, so routes are opened on purpose.
+- The default `secret` lets the app boot right away, but anyone who knows it can forge tokens, so the agent reminds the user to set `APPBEE_SECRET`.
+- `extensions.d.ts` is a seed that appbee regenerates in development.
+- The `health` module exists because every `modules/` entry needs a controller; its "No model was found" warning is expected.
 
-| Path | Lines | What landed |
-|---|---:|---|
-| `skills/appbee-controller/SKILL.md` | 162 | Controller skill |
-| `skills/appbee-model/SKILL.md` | 86 | Model skill |
-| `skills/appbee-model/hooks.md` | 74 | Write and read hooks |
-| `skills/appbee-model/query.md` | 97 | Model call reference |
-| `skills/appbee-plugin/SKILL.md` | 76 | Plugin skill |
-| `skills/appbee-use/SKILL.md` | 91 | Built-in `use` handlers |
-| `skills/appbee-utils/SKILL.md` | 91 | Runtime helper index |
-| `skills/appbee-utils/bus.md` | 42 | `useBus` |
-| `skills/appbee-utils/cron-master.md` | 45 | `useCronMaster` |
-| `skills/appbee-utils/data-loader.md` | 47 | `useDataLoader` |
-| `skills/appbee-utils/data-pager.md` | 26 | `useDataPager` |
-| `skills/appbee-worker/SKILL.md` | 128 | Worker and queue skill |
+The done check requires every path to exist, no literal password in any file, and, with dependencies installed and the store reachable, a dev boot where `GET /api/health` returns `{ "data": { "status": "ok" } }`.
+
+`templates.md` holds the nine files verbatim, with `<package-name>` as the only placeholder.
 
 #### Controllers (`appbee-controller`)
 
