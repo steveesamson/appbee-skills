@@ -110,8 +110,8 @@ It creates `config/`, `middlewares/`, `modules/`, `plugins/`, `policies/`, and `
 | `types/extensions.d.ts` | Empty `Models`, `Jobs`, `Plugins` interfaces; regenerated in development |
 
 It also adds missing project wiring without overwriting existing values:
-- `package.json`: `"type": "module"`, the `dev`/`build`/`start` scripts, and dependencies.
-- `tsconfig.json`, if there isn't one.
+- `package.json` from the template when the project has none, otherwise only the template keys it lacks. The defaults are `"type": "module"`, Node `^20.19.0 || >=22.12.0`, and the scripts `dev` (`tsx watch`), `prebuild` (`rimraf dist`), `build` (`tsc`), `start`, `test`, `test:run`, `lint` (`eslint .`), and `format` (`prettier --write .`). Dependencies are `appbee` and `mongodb@^4.17.2`. Dev dependencies add `eslint@^9.39.2`, `@eslint/js`, `eslint-config-prettier`, `prettier@^3.7.4`, and `typescript-eslint@^8.50.0` alongside `tsx`, `typescript@^5.9.3`, `@types/node`, `@types/express@^5`, `rimraf`, `vite@^7`, and `vitest@^4`.
+- `tsconfig.json`, `vite.config.js`, `prettier.config.js`, and `eslint.config.js` from the templates, when any is absent. Both tsconfig and Vite alias `$lib` to `src`. `vite.config.js` is the Vitest config from the stream-bee sample. `prettier.config.js` carries that sample's `.prettierrc` options. `eslint.config.js` is a flat config for the Node server. `outDir` is `dist`.
 - `.gitignore` and `.env.example`.
 
 It prints the install command instead of running it. It doesn't create `config/bus.ts`, because a bus file makes the server require Redis at boot; add one with `appbee-worker` when you need queues.
@@ -206,7 +206,9 @@ It explains each default:
 
 The done check requires every path to exist, no literal password in any file, and, with dependencies installed and the store reachable, a dev boot where `GET /api/health` returns `{ "data": { "status": "ok" } }`.
 
-`templates.md` holds the nine files verbatim, with `<package-name>` as the only placeholder.
+`templates.md` holds the app files verbatim, with `<package-name>` as the only placeholder, plus `package.json`, `tsconfig.json`, `vite.config.js`, `prettier.config.js`, `eslint.config.js`, and `.prettierignore`. The app files are formatted with that Prettier config, and `eslint .` passes on them. `no-empty-object-type` is off for `src/bee/types/**/*.d.ts` because the seed `extensions.d.ts` declares empty `Models`, `Jobs`, and `Plugins` interfaces for declaration merging. The `package.json` versions follow the sample. `mongodb` stays on the 4.x major appbee is built against, `@types/express` matches the 5.x types appbee's declarations compile with, and `typescript` stays on 5.x because TypeScript 6 deprecates the `baseUrl` used for `$lib`. The tsconfig follows the stream-bee sample (`module` `node16`, `moduleResolution` `nodenext`, `$lib/*` → `src/*`) and emits to `dist`. `vite.config.js` is that sample's Vitest config. `@types/express` is a dev dependency because the sample's `types` array names `express` without installing the package, which makes `tsc` report TS2688.
+
+These versions together pass `tsc`, `npm run build`, and a Vitest test that imports through `$lib`. npm 10.9.8 crashed while resolving peer dependencies for these versions, with `Cannot read properties of null (reading 'edgesOut')`; pnpm installed them cleanly.
 
 #### Controllers (`appbee-controller`)
 
