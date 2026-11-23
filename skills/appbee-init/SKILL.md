@@ -50,4 +50,4 @@ An appbee app is a **base folder** passed to `serve(base)` (and `work(base)` for
 
 ## Next
 
-Add modules with the `appbee-model` and `appbee-controller` skills, shared services with `appbee-plugin`, and background work with `appbee-worker` (the worker reuses `src/bee` as its base).
+Add modules with the `appbee-model` and `appbee-controller` skills, and shared services with `appbee-plugin`. Scaffold the worker package with `appbee-init-wkr`; it copies this `src/bee` and strips controllers and policies. Add queues with `appbee-worker`.

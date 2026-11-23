@@ -46,6 +46,7 @@ npx skills add steveesamson/appbee-skills --skill appbee-model appbee-worker
 | Skill | Install |
 |---|---|
 | `appbee-init` | `npx skills add steveesamson/appbee-skills@appbee-init` |
+| `appbee-init-wkr` | `npx skills add steveesamson/appbee-skills@appbee-init-wkr` |
 | `appbee-controller` | `npx skills add steveesamson/appbee-skills@appbee-controller` |
 | `appbee-model` | `npx skills add steveesamson/appbee-skills@appbee-model` |
 | `appbee-plugin` | `npx skills add steveesamson/appbee-skills@appbee-plugin` |
@@ -62,6 +63,9 @@ skills/
 ├── appbee-init/
 │   ├── SKILL.md                    scaffold src/bee and the serve() entry
 │   └── templates.md                default setup files
+├── appbee-init-wkr/
+│   ├── SKILL.md                    scaffold a worker package that copies src/bee
+│   └── templates.md                worker entry, package.json, tsconfig, eslint, prettier
 ├── appbee-controller/SKILL.md      routes, verbs, policies, realtime
 ├── appbee-model/
 │   ├── SKILL.md                    schema, store binding, model options
@@ -85,6 +89,7 @@ skills/
 | Skill | Load it when | Entry |
 |---|---|---|
 | `appbee-init` | Starting a new appbee project in the current directory | [`skills/appbee-init/SKILL.md`](skills/appbee-init/SKILL.md) |
+| `appbee-init-wkr` | Starting a worker package that copies a server `src/bee` | [`skills/appbee-init-wkr/SKILL.md`](skills/appbee-init-wkr/SKILL.md) |
 | `appbee-controller` | Adding or changing a route, endpoint, verb, or controller | [`skills/appbee-controller/SKILL.md`](skills/appbee-controller/SKILL.md) |
 | `appbee-model` | Adding or changing a model, schema, collection, query, or write hook | [`skills/appbee-model/SKILL.md`](skills/appbee-model/SKILL.md) |
 | `appbee-plugin` | Adding or changing a plugin, shared service, or third-party client wrapper | [`skills/appbee-plugin/SKILL.md`](skills/appbee-plugin/SKILL.md) |
@@ -114,7 +119,20 @@ It also adds missing project wiring without overwriting existing values:
 - `tsconfig.json`, `vite.config.js`, `prettier.config.js`, and `eslint.config.js` from the templates, when any is absent. Both tsconfig and Vite alias `$lib` to `src`. `vite.config.js` is the Vitest config from the stream-bee sample. `prettier.config.js` carries that sample's `.prettierrc` options. `eslint.config.js` is a flat config for the Node server. `outDir` is `dist`.
 - `.gitignore` and `.env.example`.
 
-It prints the install command instead of running it. It doesn't create `config/bus.ts`, because a bus file makes the server require Redis at boot; add one with `appbee-worker` when you need queues.
+It prints the install command instead of running it. It doesn't create `config/bus.ts`, because a bus file makes the server require Redis at boot. Scaffold the worker with `appbee-init-wkr`; that copy step writes `bus.ts` when the server has none.
+
+### appbee-init-wkr
+
+Scaffolds a worker package in the current directory, following stream-wkr. It refuses to run inside an existing server or an existing worker. `predev` and `prebuild` delete `src/bee`, copy it from `<server-bee>` (the sample copies `../stream-bee/src/bee`), then `scripts/strip-bee.mjs` removes `policies/`, every controller, and `plugins/s3.ts`, and rewrites `config/policy.ts` to allow all. The entry `src/worker.ts` calls `work()` on that copy. Jobs the worker owns live in `src/jobs/` so the copy does not delete them.
+
+The toolchain files are in [`templates.md`](skills/appbee-init-wkr/templates.md):
+
+| File | Default |
+|---|---|
+| `package.json` | `clean` / `copy` / `replace` / `predev` / `prebuild`, `dev` via `tsx watch`, `build` via `tsc`, `start` via `node dist/worker.js`. Dependencies are `appbee` and `mongodb`; the sample omits both |
+| `tsconfig.json` | The sample's enabled options (`target` `es2021`, `module` `nodenext`), emitting to `dist` |
+| `eslint.config.js` | The server flat config, ignoring the generated `src/bee/**` |
+| `prettier.config.js` | Tabs, single quotes, no trailing commas, print width 100 |
 
 ### appbee-controller
 
