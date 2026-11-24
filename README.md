@@ -2,7 +2,7 @@
 
 Agent skills for writing [appbee](https://www.npmjs.com/package/appbee) applications. Each skill is a `SKILL.md` an agent loads when the task matches its description, plus reference files the skill points to for the branches that need them.
 
-The skills cover the surfaces an appbee app is built from: REST controllers, models and queries, plugins, the built-in `use` handlers, runtime helpers, and the BullMQ worker.
+The skills cover the surfaces an appbee app is built from: REST controllers, models and queries, plugins, the built-in `use` handlers, runtime helpers, and the BullMQ worker. The `sv-form` and `sv-page` skills cover the SvelteKit frontend that calls an appbee API: forms built with `@steveesamson/microform`, and pages and loaders built with `svesta`.
 
 ## Install
 
@@ -53,6 +53,8 @@ npx skills add steveesamson/appbee-skills --skill appbee-model appbee-worker
 | `appbee-use` | `npx skills add steveesamson/appbee-skills@appbee-use` |
 | `appbee-utils` | `npx skills add steveesamson/appbee-skills@appbee-utils` |
 | `appbee-worker` | `npx skills add steveesamson/appbee-skills@appbee-worker` |
+| `sv-form` | `npx skills add steveesamson/appbee-skills@sv-form` |
+| `sv-page` | `npx skills add steveesamson/appbee-skills@sv-page` |
 
 Each install is the skill directory, so reference files such as `hooks.md` and `query.md` come with the skill. Bring installed skills up to date with `npx skills update`.
 
@@ -79,7 +81,13 @@ skills/
 │   ├── cron-master.md              utils.useCronMaster
 │   ├── data-loader.md              utils.useDataLoader
 │   └── data-pager.md               utils.useDataPager
-└── appbee-worker/SKILL.md          work(), queues, jobs
+├── appbee-worker/SKILL.md          work(), queues, jobs
+├── sv-form/
+│   ├── SKILL.md                    Svelte 5 form component with @steveesamson/microform
+│   └── reference.md                validators, custom validators, full uForm API
+└── sv-page/
+    ├── SKILL.md                    SvelteKit page and loader with svesta
+    └── reference.md                Transport, useStore, transformers, +page.server.ts
 ```
 
 `SKILL.md` is the entry point. Its YAML frontmatter supplies `name` and `description`; the description is what decides when the skill is loaded. Sibling markdown files are reference, not separate skills. An agent reaches them only when the entry point points there.
@@ -96,6 +104,8 @@ skills/
 | `appbee-use` | Validating a request, or adding captcha, file-delete, or Excel-export | [`skills/appbee-use/SKILL.md`](skills/appbee-use/SKILL.md) |
 | `appbee-utils` | A handler, hook, plugin, policy, or job needs events, Redis, joins, paging, cron, config, data sources, JWTs, or password hashing | [`skills/appbee-utils/SKILL.md`](skills/appbee-utils/SKILL.md) |
 | `appbee-worker` | Adding or changing a worker, queue, producer, consumer, or background job | [`skills/appbee-worker/SKILL.md`](skills/appbee-worker/SKILL.md) |
+| `sv-form` | Building a Svelte 5 form (create, edit, login, search, settings) with `@steveesamson/microform` | [`skills/sv-form/SKILL.md`](skills/sv-form/SKILL.md) |
+| `sv-page` | Building a SvelteKit page or its loader that reads or writes through `svesta` | [`skills/sv-page/SKILL.md`](skills/sv-page/SKILL.md) |
 
 ### appbee-init
 
@@ -297,3 +307,23 @@ The worker entry points `work()` at a base folder with the same `config/` and `m
 `processJob` starts one BullMQ worker. Returning marks the job completed; throwing marks it failed. `processJob` on a queue throws `You cannot process jobs on a non-worker`. Calling it twice for the same name starts a second worker on that queue. `on('completed' | 'failed')` listens from any process; the handler receives `{ jobId, returnvalue }` or `{ jobId, failedReason }`. The job record is already gone after completion, so listeners need everything in `returnvalue`, which may arrive as a JSON string.
 
 `jobs/*.ts` named exports merge into `workerState().useJob`, typed by augmenting `Jobs`. The file closes by restating worker versus server state and pointing `useBus().broadcast` at the Redis-client limitation in `bus.md`.
+
+### sv-form
+
+Builds a Svelte 5 form as a reusable component in `src/lib/modules/<module-name>/<thing>-form.svelte`, backed by `@steveesamson/microform`. One form per file: a form shared by create and edit takes `defaultValues`, and a create page passes `{}`. The form only collects and validates input. It does not call APIs or navigate, so the page owns saving, as in `sv-page`.
+
+The component contract is four props: `defaultValues` (include `id` when editing), `busy` (disables submit while the parent saves), `onsubmit(data)` (called with a copy of `values`, only when valid), and an optional `oncancel`. `uForm(...)` runs inside `$derived.by` so an edit page re-creates the form when `defaultValues` changes. Each field gets `use:form={{ validations: [...] }}` and renders its own `errors[name]`, and the `<form>` uses `use:submit`. The submit button is `disabled={!sanity.ok || busy}`.
+
+The skill gives field recipes for select, radio, checkbox groups (microform writes them as a comma-joined string, so split before submit), file inputs, contenteditable rich text, hidden fields, and `match:` against another field. It also lists behaviours an agent must not "fix": `sanity.ok` stays false for about 200 ms after mount and for an untouched edit form, so the disabled submit button can show before any error text does. It also notes that validations stay registered after a field leaves the DOM in microform 1.0.14. The done check requires `svelte-check` to pass on the new file.
+
+[`reference.md`](skills/sv-form/reference.md) covers the `uForm` options and return values, the built-in validators (`required`, `email`, `url`, `ip`, `number`, `integer`, `alpha`, `alphanum`, `len`, `minlen`, `maxlen`, `min`, `max`, `match`, `file-size-mb`), and custom validators through the `validators` option.
+
+### sv-page
+
+Builds a SvelteKit page as two files: `src/routes/<route>/+page.svelte` for the UI and a loader. The default loader is `+page.ts`, which suits public or token-bearing REST calls. The skill uses `+page.server.ts` only when the load needs `locals`, cookies, private env, must keep a token out of the browser, or the page has form `actions`. The skill covers four page kinds: list (`{ config }` with `initData`, rendered by `useStore` and `Resource`), detail (`{ value }` or `error(404)`), create (a form and a `save` that does `POST`), and edit (the loaded entity passed as `defaultValues`, saved with `PUT` because it has an `id`).
+
+The loader rules are the part an agent most often gets wrong. It destructures `fetch` from the load event and calls `Transport.instance({ fetch, beforeSend })` right before each request, because that transport is process-wide and an `await` can swap it. It always passes `beforeSend`, even as a no-op on public pages. GET params must be flat strings or numbers. Per-user lists carry the user key in `params`. `config` stays serializable, so transformers live in `+page.svelte`. Errors and redirects use `error()` and `redirect()` from `@sveltejs/kit`. The page does not fetch inside the component. Store calls such as `save`, `destroy`, `search`, and `more` are the only exceptions, and they are user-triggered.
+
+The project's `src/routes/+layout.ts` must call `Transport.configure({ BASE_URL, beforeSend })` once. The skill adds it when it is missing. Auth guards go in a layout `+layout.ts`, and the API must still enforce authorization on its own.
+
+[`reference.md`](skills/sv-page/reference.md) covers the `Transport` configuration and methods, the `useStore` props and methods (`sync`, `next`, `prev`, `pageTo`, `more`, `search`, `filter`, `save`, `destroy`), the `resultTransformer` for non-standard API shapes, and the `+page.server.ts` variant.
